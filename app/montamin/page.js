@@ -31,7 +31,7 @@ const rankColors = {
   عضو: '#4CAF50',
   مشرف: '#2196F3',
   قائد: '#FFC107',
-  'منتمي ': '#757575'
+  'منتمي': '#757575'
 };
 
 const calculateCounts = (node) => {
@@ -57,7 +57,7 @@ const getRank = (direct, indirect) => {
   if (total >= 100 && direct >= 10) return 'قائد';
   if (total >= 50 && direct >= 5) return 'مشرف';
   if (direct >= 10) return 'عضو';
-  return 'منتمي ';
+  return 'منتمي';
 };
 
 const TreeNode = ({ node, searchTerm, selectedRank }) => {
@@ -224,7 +224,7 @@ export default function Members() {
             <MenuItem value="قائد">قائد</MenuItem>
             <MenuItem value="مشرف">مشرف</MenuItem>
             <MenuItem value="عضو">عضو</MenuItem>
-            <MenuItem value="منتمي"> منتمي</MenuItem>
+            <MenuItem value="منتمي">منتمي</MenuItem>
           </Select>
         </FormControl>
       </Box>
