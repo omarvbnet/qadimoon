@@ -2,173 +2,287 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  TextField, 
   Box, 
   Typography, 
-  Accordion, 
-  AccordionSummary, 
-  AccordionDetails, 
-  List, 
   Tabs, 
   Tab, 
+  TextField, 
+  Paper, 
   Table, 
   TableBody, 
   TableCell, 
   TableContainer, 
   TableHead, 
-  TableRow, 
-  Paper 
+  TableRow,
+  Button,
+  Collapse,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Home, ExpandMore, ChevronRight } from '@mui/icons-material';
+
+const rankColors = {
+  عضو: '#4CAF50',
+  مشرف: '#2196F3',
+  قائد: '#FFC107',
+  'مستخدم عادي': '#757575'
+};
+
+const calculateCounts = (node) => {
+  if (!node) return { direct: 0, indirect: 0 };
+  
+  let direct = node.children?.length || 0;
+  let indirect = 0;
+  const stack = [...(node.children || [])];
+  
+  while (stack.length > 0) {
+    const current = stack.pop();
+    indirect += current.children?.length || 0;
+    if (current.children) {
+      stack.push(...current.children);
+    }
+  }
+  
+  return { direct, indirect };
+};
+
+const getRank = (direct, indirect) => {
+  const total = direct + indirect;
+  if (total >= 100 && direct >= 10) return 'قائد';
+  if (total >= 50 && direct >= 5) return 'مشرف';
+  if (direct >= 10) return 'عضو';
+  return 'مستخدم عادي';
+};
+
+const TreeNode = ({ node, searchTerm, selectedRank }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const { direct, indirect } = calculateCounts(node);
+  const rank = getRank(direct, indirect);
+  const hasChildren = node.children?.length > 0;
+
+  const matchesSearch = (
+    node.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    node.id.toString().includes(searchTerm)
+  ) && (selectedRank === 'الكل' || rank === selectedRank);
+
+  if (!matchesSearch && !hasMatchingChildren(node, searchTerm, selectedRank)) {
+    return null;
+  }
+
+  return (
+    <div dir="rtl">
+      <ListItem 
+        button
+        onClick={() => setIsOpen(!isOpen)}
+        sx={{ 
+          pl: node.level * 2,
+          backgroundColor: isOpen ? '#f0f4f8' : 'transparent',
+          borderRadius: 1,
+          display: matchesSearch ? 'flex' : 'none',
+          flexDirection: 'row-reverse'
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 'auto', marginLeft: 1 }}>
+          {hasChildren ? (isOpen ? <ExpandMore /> : <ChevronRight />) : null}
+        </ListItemIcon>
+        <ListItemText
+          primary={`${node.name} (ID: ${node.id})`}
+          secondary={`الرتبة: ${rank} | المباشرين: ${direct} | غير مباشرين: ${indirect}`}
+          sx={{ 
+            color: rankColors[rank],
+            textAlign: 'right',
+            marginRight: 2
+          }}
+          primaryTypographyProps={{ style: { direction: 'rtl', textAlign: 'right' } }}
+          secondaryTypographyProps={{ style: { direction: 'rtl', textAlign: 'right' } }}
+        />
+      </ListItem>
+      {hasChildren && (
+        <Collapse in={isOpen} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            {node.children.map(child => (
+              <TreeNode 
+                key={child.id} 
+                node={{ ...child, level: node.level + 1 }}
+                searchTerm={searchTerm}
+                selectedRank={selectedRank}
+              />
+            ))}
+          </List>
+        </Collapse>
+      )}
+    </div>
+  );
+};
+
+const hasMatchingChildren = (node, searchTerm, selectedRank) => {
+  if (!node.children) return false;
+  return node.children.some(child => {
+    const { direct, indirect } = calculateCounts(child);
+    const rank = getRank(direct, indirect);
+    const matches = (
+      child.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      child.id.toString().includes(searchTerm)
+    ) && (selectedRank === 'الكل' || rank === selectedRank);
+    return matches || hasMatchingChildren(child, searchTerm, selectedRank);
+  });
+};
 
 export default function Members() {
-  const [members, setMembers] = useState([]);
-  const [montamin, setMontamin] = useState([]);
+  const [data, setData] = useState(null);
+  const [mergedMembers, setMergedMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRank, setSelectedRank] = useState('الكل');
   const [tabValue, setTabValue] = useState(0);
 
   useEffect(() => {
-    // Fetch members and montamin data
-    async function fetchData() {
+    const fetchData = async () => {
       try {
-        const membersResponse = await fetch('/api/get');
-        const membersData = await membersResponse.json();
-        setMembers(membersData);
-
-        const montaminResponse = await fetch('/api/getMontamin');
-        const montaminData = await montaminResponse.json();
-        setMontamin(montaminData);
+        const response = await fetch('/api/get');
+        const apiData = await response.json();
+        if (apiData.length > 0) {
+          const transformedData = addLevels(apiData[0]);
+          setData(transformedData);
+          setMergedMembers(flattenHierarchy(apiData[0]));
+        }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('❌ خطأ في جلب البيانات:', error);
       }
-    }
-
+    };
     fetchData();
   }, []);
 
-  // Recursive function to count descendants
-  const countDescendants = (node) => {
-    let total = 0;
-    if (node.children && node.children.length > 0) {
-      total += node.children.length;
-      node.children.forEach((child) => {
-        total += countDescendants(child);
-      });
-    }
-    return total;
-  };
-
-  // Recursive search function for the tree structure
-  const searchTree = (node, term) => {
-    if (node.name.toLowerCase().includes(term)) return true;
-    if (node.children && node.children.length > 0) {
-      return node.children.some((child) => searchTree(child, term));
-    }
-    return false;
-  };
-
-  const filteredMembers = members.filter((member) => {
-    const term = searchTerm ? searchTerm.toLowerCase() : '';
-    return searchTree(member, term);
+  const addLevels = (node, level = 0) => ({
+    ...node,
+    level,
+    children: node.children?.map(child => addLevels(child, level + 1)) || []
   });
 
-  const filteredMontamin = montamin.filter((item) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const flattenHierarchy = (node, list = []) => {
+    const { direct, indirect } = calculateCounts(node);
+    const rank = getRank(direct, indirect);
+    list.push({
+      id: node.id,
+      name: node.name,
+      governorate: node.governorate,
+      city: node.city,
+      phone_number: node.phone_number,
+      children_count: direct,
+      grandchildren_count: indirect,
+      total_combined: direct + indirect,
+      rank: rank
+    });
+    node.children?.forEach(child => flattenHierarchy(child, list));
+    return list;
+  };
 
-  // Render tree structure
-  const renderTree = (node) => (
-    <Accordion key={node.id} sx={{ marginBottom: 2, width: '100%' }}>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />} aria-controls={`panel-${node.id}-content`} id={`panel-${node.id}-header`}>
-        <Box sx={{ display: 'flex', width: '100%', alignItems: 'center' }}>
-          <Typography variant="h6" color="primary" sx={{ width: '30%', flexShrink: 0 }}>
-            {countDescendants(node)}
-          </Typography>
-          <Typography variant="h6" color="primary" sx={{ width: '60%', flexShrink: 0 }}>
-            {node.name} (ID: {node.id}) - عدد المباشرين: {node.children_count} - عدد الغير مباشرين: {node.grandchildren_count}
-          </Typography>
-        </Box>
-      </AccordionSummary>
-      <AccordionDetails>
-        {node.children && node.children.length > 0 && (
-          <List sx={{ paddingLeft: 4 }}>
-            {node.children.map((child) => renderTree(child))}
-          </List>
-        )}
-      </AccordionDetails>
-    </Accordion>
+  const filteredMembers = mergedMembers.filter(member =>
+    (member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    member.id.toString().includes(searchTerm)) &&
+    (selectedRank === 'الكل' || member.rank === selectedRank)
   );
 
   return (
-    <Box
-      sx={{
-        direction: 'rtl',
-        padding: 6,
-        backgroundColor: '#f0f4f8',
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-      }}
-    >
-      <Typography variant="h4" color="primary" sx={{ marginBottom: 4, fontWeight: 'bold' }}>
-        إدارة الأعضاء
+    <Box sx={{ 
+      direction: 'rtl',
+      padding: 4,
+      backgroundColor: '#f0f4f8',
+      minHeight: '100vh'
+    }}>
+      <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: 'primary.main' }}>
+        نظام إدارة الأعضاء التفاعلي
       </Typography>
-      <Tabs
-        value={tabValue}
-        onChange={(e, newValue) => setTabValue(newValue)}
-        sx={{ marginBottom: 4 }}
-        centered
-      >
-        <Tab label="شبكة الأعضاء" />
-        <Tab label="قائمة المنتمين" />
+
+      <Tabs value={tabValue} onChange={(e, newVal) => setTabValue(newVal)} centered sx={{ mb: 4 }}>
+        <Tab label="الهيكل التفاعلي" />
+        <Tab label="القائمة الكاملة" />
       </Tabs>
 
-      <TextField
-        variant="outlined"
-        placeholder="ابحث عن اسم..."
-        fullWidth
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        sx={{
-          marginBottom: 4,
-          backgroundColor: '#ffffff',
-          borderRadius: 3,
-          maxWidth: '600px',
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 3,
-          },
-        }}
-      />
+      <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
+        <TextField
+          fullWidth
+          placeholder="ابحث بالأسم أو الرقم التعريفي..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          sx={{ maxWidth: 600, bgcolor: 'white' }}
+        />
+        
+        <FormControl sx={{ minWidth: 120 }}>
+          <InputLabel>الرتبة</InputLabel>
+          <Select
+            value={selectedRank}
+            onChange={(e) => setSelectedRank(e.target.value)}
+            label="الرتبة"
+          >
+            <MenuItem value="الكل">الكل</MenuItem>
+            <MenuItem value="قائد">قائد</MenuItem>
+            <MenuItem value="مشرف">مشرف</MenuItem>
+            <MenuItem value="عضو">عضو</MenuItem>
+            <MenuItem value="مستخدم عادي">مستخدم عادي</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
 
       {tabValue === 0 && (
-        <Box sx={{ width: '100%', maxWidth: 800 }}>
-          {filteredMembers.length > 0 ? (
-            <List>{filteredMembers.map((member) => renderTree(member))}</List>
+        <Box sx={{ 
+          height: '70vh',
+          bgcolor: 'white',
+          borderRadius: 2,
+          p: 2,
+          overflow: 'auto',
+          direction: 'rtl'
+        }}>
+          {data ? (
+            <List sx={{ direction: 'rtl' }}>
+              <TreeNode 
+                node={data} 
+                searchTerm={searchTerm}
+                selectedRank={selectedRank}
+              />
+            </List>
           ) : (
-            <Typography variant="h6" color="textSecondary" align="center">
-              لا توجد نتائج مطابقة
+            <Typography variant="h6" color="textSecondary" align="right">
+              جاري تحميل البيانات...
             </Typography>
           )}
         </Box>
       )}
 
       {tabValue === 1 && (
-        <TableContainer component={Paper} sx={{ maxWidth: 800, marginTop: 2 }}>
+        <TableContainer component={Paper} sx={{ maxWidth: '95%', mx: 'auto' }}>
           <Table>
-            <TableHead>
+            <TableHead sx={{ bgcolor: 'primary.light' }}>
               <TableRow>
-                <TableCell>الاسم</TableCell>
-                <TableCell>المعرف</TableCell>
-                <TableCell>الإجمالي</TableCell>
+                {['الاسم', 'المعرف', 'المحافظة', 'المدينة', 'الهاتف', 'المباشرين', 'غير مباشرين', 'الإجمالي', 'الرتبة'].map(
+                  (header) => (
+                    <TableCell key={header} sx={{ fontWeight: 'bold' }}>{header}</TableCell>
+                  )
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredMontamin.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>{item.name}</TableCell>
-                  <TableCell>{item.id}</TableCell>
-                  <TableCell>{item.total_count}</TableCell>
+              {filteredMembers.map((member) => (
+                <TableRow key={member.id} hover>
+                  <TableCell>{member.name}</TableCell>
+                  <TableCell>{member.id}</TableCell>
+                  <TableCell>{member.governorate}</TableCell>
+                  <TableCell>{member.city}</TableCell>
+                  <TableCell>{member.phone_number}</TableCell>
+                  <TableCell>{member.children_count}</TableCell>
+                  <TableCell>{member.grandchildren_count}</TableCell>
+                  <TableCell>{member.total_combined}</TableCell>
+                  <TableCell sx={{ 
+                    color: rankColors[member.rank],
+                    fontWeight: 'bold'
+                  }}>
+                    {member.rank}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
