@@ -20,6 +20,7 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
+  ListItemButton, // تم استيراد ListItemButton
   Select,
   MenuItem,
   InputLabel,
@@ -31,7 +32,7 @@ const rankColors = {
   عضو: '#4CAF50',
   مشرف: '#2196F3',
   قائد: '#FFC107',
-  'منتمي': '#757575'
+  منتمي: '#757575' // تم تغيير "مستخدم عادي" إلى "منتمي"
 };
 
 const calculateCounts = (node) => {
@@ -57,7 +58,7 @@ const getRank = (direct, indirect) => {
   if (total >= 100 && direct >= 10) return 'قائد';
   if (total >= 50 && direct >= 5) return 'مشرف';
   if (direct >= 10) return 'عضو';
-  return 'منتمي';
+  return 'منتمي'; // تم تغيير "مستخدم عادي" إلى "منتمي"
 };
 
 const TreeNode = ({ node, searchTerm, selectedRank }) => {
@@ -71,14 +72,26 @@ const TreeNode = ({ node, searchTerm, selectedRank }) => {
     node.id.toString().includes(searchTerm)
   ) && (selectedRank === 'الكل' || rank === selectedRank);
 
-  if (!matchesSearch && !hasMatchingChildren(node, searchTerm, selectedRank)) {
+  const hasMatchingChildren = (node) => {
+    if (!node.children) return false;
+    return node.children.some(child => {
+      const { direct, indirect } = calculateCounts(child);
+      const rank = getRank(direct, indirect);
+      const matches = (
+        child.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        child.id.toString().includes(searchTerm)
+      ) && (selectedRank === 'الكل' || rank === selectedRank);
+      return matches || hasMatchingChildren(child);
+    });
+  };
+
+  if (!matchesSearch && !hasMatchingChildren(node)) {
     return null;
   }
 
   return (
     <div dir="rtl">
-      <ListItem 
-        button
+      <ListItemButton // تم استبدال ListItem بـ ListItemButton
         onClick={() => setIsOpen(!isOpen)}
         sx={{ 
           pl: node.level * 2,
@@ -102,7 +115,7 @@ const TreeNode = ({ node, searchTerm, selectedRank }) => {
           primaryTypographyProps={{ style: { direction: 'rtl', textAlign: 'right' } }}
           secondaryTypographyProps={{ style: { direction: 'rtl', textAlign: 'right' } }}
         />
-      </ListItem>
+      </ListItemButton>
       {hasChildren && (
         <Collapse in={isOpen} timeout="auto" unmountOnExit>
           <List component="div" disablePadding>
@@ -119,19 +132,6 @@ const TreeNode = ({ node, searchTerm, selectedRank }) => {
       )}
     </div>
   );
-};
-
-const hasMatchingChildren = (node, searchTerm, selectedRank) => {
-  if (!node.children) return false;
-  return node.children.some(child => {
-    const { direct, indirect } = calculateCounts(child);
-    const rank = getRank(direct, indirect);
-    const matches = (
-      child.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      child.id.toString().includes(searchTerm)
-    ) && (selectedRank === 'الكل' || rank === selectedRank);
-    return matches || hasMatchingChildren(child, searchTerm, selectedRank);
-  });
 };
 
 export default function Members() {
@@ -182,11 +182,25 @@ export default function Members() {
     return list;
   };
 
+  const calculateRankTotals = (members) => {
+    const totals = {};
+    members.forEach(member => {
+      if (!totals[member.rank]) totals[member.rank] = 0;
+      totals[member.rank]++;
+    });
+    return totals;
+  };
+
   const filteredMembers = mergedMembers.filter(member =>
     (member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     member.id.toString().includes(searchTerm)) &&
     (selectedRank === 'الكل' || member.rank === selectedRank)
   );
+
+  const rankTotals = calculateRankTotals(filteredMembers);
+
+  // حساب المجموع الكلي
+  const totalMembers = filteredMembers.length;
 
   return (
     <Box sx={{ 
@@ -224,9 +238,16 @@ export default function Members() {
             <MenuItem value="قائد">قائد</MenuItem>
             <MenuItem value="مشرف">مشرف</MenuItem>
             <MenuItem value="عضو">عضو</MenuItem>
-            <MenuItem value="منتمي">منتمي</MenuItem>
+            <MenuItem value="منتمي">منتمي</MenuItem> {/* تم تغيير "مستخدم عادي" إلى "منتمي" */}
           </Select>
         </FormControl>
+
+        {/* إضافة المجموع الكلي */}
+        <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: 'white', borderRadius: 1, p: 2 }}>
+          <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+            المجموع الكلي: {totalMembers}
+          </Typography>
+        </Box>
       </Box>
 
       {tabValue === 0 && (
@@ -259,7 +280,7 @@ export default function Members() {
           <Table>
             <TableHead sx={{ bgcolor: 'primary.light' }}>
               <TableRow>
-                {['الاسم', 'المعرف', 'المحافظة', 'المدينة', 'الهاتف', 'المباشرين', 'غير مباشرين', 'الإجمالي', 'الرتبة'].map(
+                {['الاسم', 'المعرف', 'المحافظة', 'المدينة', 'الهاتف', 'المباشرين', 'غير مباشرين', 'الإجمالي', 'الرتبة', 'المجموع'].map(
                   (header) => (
                     <TableCell key={header} sx={{ fontWeight: 'bold' }}>{header}</TableCell>
                   )
@@ -277,11 +298,11 @@ export default function Members() {
                   <TableCell>{member.children_count}</TableCell>
                   <TableCell>{member.grandchildren_count}</TableCell>
                   <TableCell>{member.total_combined}</TableCell>
-                  <TableCell sx={{ 
-                    color: rankColors[member.rank],
-                    fontWeight: 'bold'
-                  }}>
+                  <TableCell sx={{ color: rankColors[member.rank], fontWeight: 'bold' }}>
                     {member.rank}
+                  </TableCell>
+                  <TableCell>
+                    {rankTotals[member.rank]}
                   </TableCell>
                 </TableRow>
               ))}
