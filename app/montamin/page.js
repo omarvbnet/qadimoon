@@ -55,8 +55,8 @@ const calculateCounts = (node) => {
 
 const getRank = (direct, indirect) => {
   const total = direct + indirect;
-  if (total >= 100 && direct >= 10) return 'قائد';
-  if (total >= 50 && direct >= 5) return 'مشرف';
+  if (total >= 1000 && direct >= 1000) return 'قائد';
+  if (total >= 100 && direct >= 100) return 'مشرف';
   if (direct >= 10) return 'عضو';
   return 'منتمي'; // تم تغيير "مستخدم عادي" إلى "منتمي"
 };
