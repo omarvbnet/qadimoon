@@ -1,195 +1,170 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { Box, TextField, Button, Typography, Select, MenuItem, FormControl, InputLabel, Grid, Paper, Snackbar, Alert } from '@mui/material';
+import { useState } from 'react';
+import { TextField, Autocomplete, Container, Typography, Grid, Button, Box, CircularProgress } from '@mui/material';
 
-export default function AddMontami() {
-  const [formData, setFormData] = useState({
-    name: '',
-    province: '',
-    city: '',
-    phone_number: '',
-    voter_id_number: '',
-    registration_center_name: '',
-    identifier: '',
-  });
-
-  const [identifiers, setIdentifiers] = useState([]);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
-  // جلب قائمة المعرفين
-  useEffect(() => {
-    const fetchIdentifiers = async () => {
-      const response = await fetch('/api/getIdentifiers');
-      const data = await response.json();
-      setIdentifiers(data);
-    };
-
-    fetchIdentifiers();
-  }, []);
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const response = await fetch('/api/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
+export default function AddMontameen() {
+    const [formData, setFormData] = useState({
+        name: '',
+        governorate: '',
+        city: '',
+        phone: '',
+        voterCard: '',
+        registrationCenter: '',
+        identifier: null, // معرف المستخدم المختار
     });
 
-    if (response.ok) {
-      setSnackbar({ open: true, message: 'تم إضافة المنتمي بنجاح!', severity: 'success' });
-    } else {
-      setSnackbar({ open: true, message: 'حدث خطأ أثناء إضافة المنتمي.', severity: 'error' });
-    }
-  };
+    const [identifiers, setIdentifiers] = useState([]); // قائمة المعرفين المتاحة
+    const [loading, setLoading] = useState(false);
 
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
-  return (
-    <Box 
-      sx={{
-        backgroundColor: '#f9f9f9',
-        minHeight: '60vh',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 4,
-        direction:'rtl'
-      }}
-    >
-      <Paper
-        elevation={3}
-        sx={{
-          padding: 4,
-          borderRadius: 4,
-          maxWidth: 500,
-          width: '100%',
-          boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
-        }}
-      >
-        <Typography variant="h5" sx={{    direction:'rtl' , marginBottom: 4, textAlign: 'center', fontWeight: 'bold' }}>
-          إضافة منتمي جديد
-        </Typography>
-        <form onSubmit={handleSubmit}>
-          <Grid container spacing={2}>
-            <Grid item sx={{   direction:'rtl'}} xs={12}>
-              <TextField
-               sx={{ textAlign:'right'}}
-                fullWidth
-                label="اسم المنتمي"
-                name="name"
-                variant="outlined"
-                
-                onChange={handleChange}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="المحافظة"
-                name="province"
-                variant="outlined"
-                onChange={handleChange}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="المدينة"
-                name="city"
-                variant="outlined"
-                onChange={handleChange}
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="رقم الهاتف"
-                name="phone_number"
-                variant="outlined"
-                onChange={handleChange}
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="رقم بطاقة الناخب"
-                name="voter_id_number"
-                variant="outlined"
-                onChange={handleChange}
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="اسم مركز التسجيل"
-                name="registration_center_name"
-                variant="outlined"
-                onChange={handleChange}
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>المعرف</InputLabel>
-                <Select
-                  name="identifier"
-                  value={formData.identifier}
-                  onChange={handleChange}
-                  required
-                >
-                  <MenuItem value="">
-                    <em>اختر المعرف</em>
-                  </MenuItem>
-                  {identifiers.map((identifier) => (
-                    <MenuItem key={identifier.id} value={identifier.id}>
-                      {identifier.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <Button
-                type="submit"
-                variant="contained"
-                fullWidth
-                sx={{
-                  backgroundColor: '#1976d2',
-                  color: '#fff',
-                  padding: '10px 20px',
-                  borderRadius: 2,
-                  '&:hover': { backgroundColor: '#1565c0' },
-                }}
-              >
-                إضافة منتمي
-              </Button>
-            </Grid>
-          </Grid>
-        </form>
-      </Paper>
-      {/* Snackbar Component */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
-  );
+    const handleSearch = async (event, value) => {
+        const query = value.trim();
+        if (query.length === 0) {
+            setIdentifiers([]);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const response = await fetch(`/api/searchIdentifiers?query=${encodeURIComponent(query)}`);
+
+            if (!response.ok) {
+                const errorData = await response.json(); // استخراج تفاصيل الخطأ
+                throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message}, Details: ${errorData.error}`);
+            }
+
+            const data = await response.json();
+            console.log('✅ Response data:', data);
+            setIdentifiers(data);
+        } catch (error) {
+            console.error('❌ Error fetching identifiers:', error.message);
+        }
+        setLoading(false);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        const response = await fetch('/api/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+        });
+
+        if (response.ok) {
+            alert('تم إضافة المنتمي بنجاح!');
+        } else {
+            alert('حدث خطأ أثناء إضافة المنتمي.');
+        }
+    };
+
+    return (
+        <Container maxWidth="md" sx={{ mt: 4 }}>
+            <Typography variant="h4" gutterBottom align="center">
+                تسجيل المنتمين
+            </Typography>
+            <Box component="form" onSubmit={handleSubmit} noValidate>
+                <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            label="اسم المنتمي"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            label="المحافظة"
+                            name="governorate"
+                            value={formData.governorate}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            label="المدينة"
+                            name="city"
+                            value={formData.city}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            label="رقم الهاتف"
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            label="رقم بطاقة الناخب"
+                            name="voterCard"
+                            value={formData.voterCard}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            label="اسم مركز التسجيل"
+                            name="registrationCenter"
+                            value={formData.registrationCenter}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Grid>
+                    <Grid item xs={12}>
+                        <Autocomplete
+                            freeSolo
+                            options={identifiers}
+                            getOptionLabel={(option) => option.name || ''}
+                            onInputChange={handleSearch}
+                            onChange={(event, newValue) => {
+                                setFormData({ ...formData, identifier: newValue ? newValue.id : null });
+                            }}
+                            loading={loading}
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    label="المعرف"
+                                    variant="outlined"
+                                    fullWidth
+                                    required
+                                    InputProps={{
+                                        ...params.InputProps,
+                                        endAdornment: (
+                                            <>
+                                                {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                                                {params.InputProps.endAdornment}
+                                            </>
+                                        ),
+                                    }}
+                                />
+                            )}
+                        />
+                    </Grid>
+                </Grid>
+                <Box sx={{ mt: 3, textAlign: 'center' }}>
+                    <Button type="submit" variant="contained" color="primary">
+                        تسجيل
+                    </Button>
+                </Box>
+            </Box>
+        </Container>
+    );
 }
