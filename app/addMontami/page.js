@@ -29,7 +29,7 @@ export default function AddMontameen() {
 
         setLoading(true);
         try {
-            const response = await fetch(`/api/searchIdentifiers?query=${encodeURIComponent(query)}`);
+            const response = await fetch(`/api/getIdentifiers?query=${encodeURIComponent(query)}`);
 
             if (!response.ok) {
                 const errorData = await response.json(); // استخراج تفاصيل الخطأ
