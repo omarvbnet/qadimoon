@@ -4,11 +4,11 @@ export  async function POST(req, res) {
  
       const {
         name,
-    province,
+        governorate,
     city,
-    phone_number,
-    voter_id_number,
-    registration_center_name,
+    phone,
+    voterCard,
+    registrationCenter,
     identifier, 
       } = await req.json();
 
@@ -20,11 +20,11 @@ export  async function POST(req, res) {
             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE)
           `,
               [ name,
-                province,
+                governorate,
                 city,
-                phone_number,
-                voter_id_number,
-                registration_center_name,
+                phone,
+                voterCard,
+                registrationCenter,
                 identifier, ]
           );
 
